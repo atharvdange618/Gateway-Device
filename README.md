@@ -52,7 +52,7 @@ File Fortress is a simple web-based file management system designed for storing,
 
 ## Dependencies
 
-- [Arduino IDE](https://www.arduino.cc/en/software) for uploading the server-side code to your ESP8266 or ESP32 board.
+- [Arduino IDE](https://www.arduino.cc/en/software) for uploading the server-side code to your ESP32 board.
 
 ## Contributing
 
