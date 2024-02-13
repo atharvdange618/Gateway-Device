@@ -2,53 +2,80 @@
 #include <SPIFFS.h>
 
 SoftwareSerial mySerial(16, 17); // RX on pin 16, TX on pin 17
+#define FILE_REQUEST_CODE 'R'
+#define FILE_CHUNK_SIZE 1024
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   mySerial.begin(9600);
 
-  if (!SPIFFS.begin(true)) {
+  if (!SPIFFS.begin(true))
+  {
     Serial.println("Error: Failed to mount SPIFFS");
-    while (1) {
+    while (1)
+    {
       delay(1000);
     }
   }
 }
 
-void loop() {
+void loop()
+{
   // Wait for a request from the master
-  while (!mySerial.available()) {
+  while (!mySerial.available())
+  {
     delay(100);
   }
 
   // Read the request from the master
-  String request = mySerial.readStringUntil('\n');
-  Serial.println("Request from Master: " + request);
+  String requestCommand = mySerial.readStringUntil('\n');
+  Serial.println("Request from Master: " + requestCommand);
+
+  String filename = requestCommand.substring(4);
 
   // Check if the request is "REQ"
-  if (request.startsWith("REQ")) {
+  if (requestCommand.startsWith("REQ "))
+  {
+    Serial.println("File request received for: " + filename);
 
-    // Read the content of a file from SPIFFS
-    String fileContent = readFileContent("/example.txt");
-
-    // Respond with the file content
-    mySerial.println("Data from Slave: " + fileContent);
+    // Get the requested file and send its content
+    sendFile(filename);
   }
-
-  // Add a delay before handling the next request
-  delay(5000);
 }
 
-String readFileContent(const char* filePath) {
-  String content = "";
-  File file = SPIFFS.open(filePath, "r");
-  if (file) {
-    while (file.available()) {
-      content += (char)file.read();
-    }
-    file.close();
-  } else {
+void sendFile(String filename)
+{
+  // Open the requested file for reading on the ESP32
+  filename.trim();
+  Serial.println("Sending file: " + filename);
+  File file = SPIFFS.open("/" + filename, "r");
+
+  if (!file)
+  {
     Serial.println("Error opening file for reading");
+    return;
   }
-  return content;
+
+  // Send the start of file marker
+  mySerial.println("STR" + filename);
+
+  // Send the file content in chunks
+  while (file.available())
+  {
+    char chunk[FILE_CHUNK_SIZE];
+    int bytesRead = file.readBytes(chunk, FILE_CHUNK_SIZE);
+
+    // Send the chunk to the master
+    mySerial.write(chunk, bytesRead);
+
+    // Add a small delay to allow the master to receive the data
+    delay(5);
+  }
+
+  // Send an empty line as EOF marker
+  mySerial.println();
+
+  file.close();
+  Serial.println("File sent");
 }
